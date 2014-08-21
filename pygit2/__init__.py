@@ -35,9 +35,11 @@ from _pygit2 import *
 from .blame import Blame, BlameHunk
 from .config import Config
 from .credentials import *
+from .diff import Diff
 from .errors import check_error
 from .ffi import ffi, C
 from .index import Index, IndexEntry
+from .patch import Patch
 from .remote import Remote, get_credentials
 from .repository import Repository
 from .settings import Settings
