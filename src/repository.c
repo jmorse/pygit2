@@ -70,22 +70,29 @@ int_to_loose_object_type(int type_id)
 int
 Repository_init(Repository *self, PyObject *args, PyObject *kwds)
 {
+    char *kwargs[] = { "repopath", "repository_ptr", NULL };
     char *path;
+    PyObject *capsule;
     int err;
 
-    if (kwds) {
-        PyErr_SetString(PyExc_TypeError,
-                        "Repository takes no keyword arguments");
-        return -1;
-    }
-
-    if (!PyArg_ParseTuple(args, "s", &path))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "z|O", kwargs, &path, &capsule))
         return -1;
 
-    err = git_repository_open(&self->repo, path);
-    if (err < 0) {
-        Error_set_str(err, path);
-        return -1;
+    /* Accept either a path to the git repository as a positional argument, or
+     * if the path is None, a keyword argument containing a pycapsule containing
+     * a struct git_repository. This allows repositories opened in a special
+     * manner elsewhere to be manipulated by pygit2. */
+    if (path != NULL) {
+        err = git_repository_open(&self->repo, path);
+        if (err < 0) {
+            Error_set_str(err, path);
+            return -1;
+        }
+    } else if (capsule == NULL) {
+        PyErr_Format(PyExc_Exception, "Expected either repository path or pointer");
+        return 0;
+    } else {
+        self->repo = PyCapsule_GetPointer(capsule, "");
     }
 
     self->config = NULL;
