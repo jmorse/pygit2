@@ -40,6 +40,7 @@
 
 extern PyObject *GitError;
 extern PyTypeObject RefLogEntryType;
+extern PyTypeObject ReferenceType;
 
 
 void RefLogIter_dealloc(RefLogIter *self)
@@ -103,6 +104,69 @@ PyTypeObject RefLogIterType = {
     0,                                         /* tp_weaklistoffset */
     PyObject_SelfIter,                         /* tp_iter           */
     (iternextfunc)RefLogIter_iternext,         /* tp_iternext       */
+};
+
+void RefGlob_dealloc(RefGlob *self)
+{
+    Py_CLEAR(self->repo);
+    git_reference_iterator_free(self->iter);
+    PyObject_Del(self);
+}
+
+PyObject* RefGlob_iternext(RefGlob *self)
+{
+    git_reference *ref;
+    Reference *py_entry;
+    int error;
+
+    /* Fetch the next git reference */
+    error = self->iter->next(&ref, self->iter);
+    if (error == GIT_ITEROVER) {
+      PyErr_SetNone(PyExc_StopIteration);
+      return NULL;
+    } else if (error != GIT_OK) {
+      PyErr_Format(PyExc_Exception, "libgit2 error %d fetching glob'd reference", error);
+      return NULL;
+    }
+
+    py_entry = (Reference*)PyObject_New(Reference, &ReferenceType);
+    py_entry->reference = ref;
+    py_entry->repo = self->repo;
+    Py_INCREF(self->repo);
+
+    return (PyObject*) py_entry;
+}
+
+PyDoc_STRVAR(RefGlobType__doc__, "Internal reference glob iterator object.");
+
+PyTypeObject RefGlobType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "_pygit2.RefGlob",                         /* tp_name           */
+    sizeof(RefGlob),                           /* tp_basicsize      */
+    0,                                         /* tp_itemsize       */
+    (destructor)RefGlob_dealloc,               /* tp_dealloc        */
+    0,                                         /* tp_print          */
+    0,                                         /* tp_getattr        */
+    0,                                         /* tp_setattr        */
+    0,                                         /* tp_compare        */
+    0,                                         /* tp_repr           */
+    0,                                         /* tp_as_number      */
+    0,                                         /* tp_as_sequence    */
+    0,                                         /* tp_as_mapping     */
+    0,                                         /* tp_hash           */
+    0,                                         /* tp_call           */
+    0,                                         /* tp_str            */
+    0,                                         /* tp_getattro       */
+    0,                                         /* tp_setattro       */
+    0,                                         /* tp_as_buffer      */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /* tp_flags          */
+    RefGlobType__doc__,                        /* tp_doc            */
+    0,                                         /* tp_traverse       */
+    0,                                         /* tp_clear          */
+    0,                                         /* tp_richcompare    */
+    0,                                         /* tp_weaklistoffset */
+    PyObject_SelfIter,                         /* tp_iter           */
+    (iternextfunc)RefGlob_iternext,            /* tp_iternext       */
 };
 
 void

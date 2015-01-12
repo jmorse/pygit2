@@ -31,6 +31,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <git2.h>
+#include <git2/sys/refdb_backend.h>
 
 /*
  * Python objects
@@ -177,6 +178,8 @@ typedef struct {
     size_t size;
 } RefLogIter;
 
+/* git reference iterator */
+SIMPLE_TYPE(RefGlob, git_reference_iterator, iter)
 
 /* git_signature */
 typedef struct {

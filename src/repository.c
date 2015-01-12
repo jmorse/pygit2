@@ -54,6 +54,7 @@ extern PyTypeObject RemoteType;
 extern PyTypeObject ReferenceType;
 extern PyTypeObject NoteType;
 extern PyTypeObject NoteIterType;
+extern PyTypeObject RefGlobType;
 
 git_otype
 int_to_loose_object_type(int type_id)
@@ -1096,6 +1097,40 @@ Repository_create_reference_symbolic(Repository *self,  PyObject *args,
     return wrap_reference(c_reference, self);
 }
 
+PyDoc_STRVAR(Repository_match_reference_glob__doc__,
+  "match_reference_glob(str) -> RefGlob\n"
+  "\n"
+  "Opens a reference iterator that produces references matching the glob\n"
+  "argument.");
+
+PyObject *
+Repository_match_reference_glob(Repository *self, PyObject *args)
+{
+  RefGlob *glob_obj;
+  git_reference_iterator *iter;
+  char *glob_str;
+  int error;
+
+  if (!PyArg_ParseTuple(args, "s", &glob_str))
+    return NULL;
+
+  error = git_reference_iterator_glob_new(&iter, self->repo, glob_str);
+  if (error != GIT_OK) {
+    PyErr_Format(PyExc_Exception, "Error %d opening reference iterator", error);
+    return NULL;
+  }
+
+  glob_obj = (RefGlob*)PyObject_New(RefGlob, &RefGlobType);
+  if (glob_obj == NULL) {
+    git_reference_iterator_free(iter);
+    return NULL;
+  }
+
+  glob_obj->repo = self;
+  glob_obj->iter = iter;
+  Py_INCREF(self);
+  return (PyObject*)glob_obj;
+}
 
 PyDoc_STRVAR(Repository_status__doc__,
   "status() -> {str: int}\n"
@@ -1445,6 +1480,7 @@ PyMethodDef Repository_methods[] = {
     METHOD(Repository, create_reference_symbolic, METH_VARARGS),
     METHOD(Repository, listall_references, METH_NOARGS),
     METHOD(Repository, lookup_reference, METH_O),
+    METHOD(Repository, match_reference_glob, METH_VARARGS),
     METHOD(Repository, revparse_single, METH_O),
     METHOD(Repository, status, METH_NOARGS),
     METHOD(Repository, status_file, METH_O),
